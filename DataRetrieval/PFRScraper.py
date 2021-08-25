@@ -21,7 +21,7 @@ class PFRScraper(AbstractScraper):
         self.thresh = 10
 
         # What columns do we care about?
-        self.rb_filter = ["Year", "Tm", "Rush", "Yds", "TD", "Tgt", "Rec", "AV", "A/G"]
+        self.rb_filter = ["Age", "Year", "Tm", "Rush", "Yds", "TD", "Tgt", "Rec", "AV", "A/G"]
 
         # RB cache
         self.player_dict_rb = {}
@@ -44,7 +44,7 @@ class PFRScraper(AbstractScraper):
         # Iterate until we get the correct player name
         correct_player = False
         counter = 0
-        while correct_player is False:
+        while correct_player is False and counter < self.thresh + 1:
             # There are overlaps with the url convention, we need to just iterate through until we get the right player
             index_str = str(counter)
             if len(index_str) == 1:
@@ -60,7 +60,7 @@ class PFRScraper(AbstractScraper):
 
             # Successful request
             if resp.ok:
-                if self.DoesPlayerMatch(player_first, player_last, resp.content):
+                if self.DoesPlayerMatch(player_first, player_last, position, resp.content):
                     # We got our guy
                     correct_player = True
 
@@ -71,9 +71,17 @@ class PFRScraper(AbstractScraper):
                         # Scrape the data
                         data = self.ScrapeRB(player_first, player_last, resp.content)
 
+                        # Try again
+                        if data is None:
+                            url = "https://www.pro-football-reference.com/search/search.fcgi?hint={0}+{1}&search={0}+{1}".format(player_first, player_last)
+                            resp = self.m_ssn.get(url, verify = True)
+                            data = self.ScrapeRB(player_first, player_last, resp.content)
+
                         # Check if we want to trim the data to a specific range
                         if year is not None and trim is True:
                             data = TrimData(data, year)
+                            if len(data.keys()) == 0 or str(year) not in data.keys():
+                                correct_player = False
 
                         # Put the player in the dictionary
                         self.player_dict_rb[player_first + " " + player_last] = data
@@ -89,16 +97,29 @@ class PFRScraper(AbstractScraper):
             # Increment the count
             counter += 1
 
-    def DoesPlayerMatch(self, player_first, player_last, content):
+    def DoesPlayerMatch(self, player_first, player_last, position, content):
         # Return boolean to see if there is a player match
         player_match = False
 
         # Parse my response text with beautiful soup
         soup = BeautifulSoup(content, "lxml")
-        name = soup.find("h1",attrs={"itemprop":"name"}).text
-        name = name[1:-1]
+
+        # Find their name
+        name = soup.find("strong").text
         separatedName = name.split(" ")
-        if separatedName[0] == player_first and separatedName[1] == player_last:
+
+        # Find their position
+        p_content = soup.find_all("p")
+        scraped_position = None
+        for i in range(0, len(p_content)):
+            p = p_content[i]
+            if "Position" in p.text:
+                colon_idx = p.text.index(":")
+                scraped_position = p.text[colon_idx+2:colon_idx+4]
+                break
+
+        # See if the player matches
+        if separatedName[0] == player_first and separatedName[1] == player_last and scraped_position == position:
             player_match = True
 
         return player_match
@@ -111,7 +132,12 @@ class PFRScraper(AbstractScraper):
         soup = BeautifulSoup(content, "lxml")
 
         # Get the header to get the categories of stats
-        stats_header = soup.findAll('table')[0].findAll('th', attrs={"scope":"col"})
+        try:
+            stats_header = soup.findAll('table')[0].findAll('th', attrs={"scope":"col"})
+        except:
+            # Couldn't find any tables, likely a faulty page
+            return None
+
         headers = [i.text for i in stats_header if i.text != "Year"]
 
         # Get the table of past years

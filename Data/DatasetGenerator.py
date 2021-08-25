@@ -29,6 +29,6 @@ class DatasetGenerator:
 # Main script for testing functionality/sandboxing
 if __name__ == '__main__':
     # See if the inheiritance/init is working
-    generator = DatasetGenerator(2000, 2020)
+    generator = DatasetGenerator(2005, 2020)
     rb_data = generator.Generate()
-    generator.save(rb_data)
+    generator.Save(rb_data, "RB")

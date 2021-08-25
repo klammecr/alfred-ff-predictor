@@ -16,7 +16,7 @@ class FFTodayScraper(AbstractScraper):
     def ScrapeTop25RBFromYears(self, start_year, end_year):
         out = {}
         for year in range(start_year, end_year+1):
-            out[year] = self.ScrapeTom25RBFromYear(year)
+            out[str(year)] = self.ScrapeTom25RBFromYear(year)
         return out
 
     def ScrapeTom25RBFromYear(self, year):

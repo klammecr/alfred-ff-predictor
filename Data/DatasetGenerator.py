@@ -19,11 +19,16 @@ class DatasetGenerator:
     
     def Generate(self):
         if self.position_group == "RB":
-            rb_data = self.fft_scraper.ScrapeTop25RBFromYears(self.start_year, self.stop_year)
-            pass
+            data = self.fft_scraper.ScrapeTop25RBFromYears(self.start_year, self.stop_year)
+        return data
+
+    def Save(self, data, position_group):
+        if position_group == "RB":
+            self.db.InsertRB(data)
 
 # Main script for testing functionality/sandboxing
 if __name__ == '__main__':
     # See if the inheiritance/init is working
-    generator = DatasetGenerator(2005, 2009)
-    generator.Generate()
+    generator = DatasetGenerator(2000, 2020)
+    rb_data = generator.Generate()
+    generator.save(rb_data)

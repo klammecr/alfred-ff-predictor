@@ -38,7 +38,7 @@ class FFTodayScraper(AbstractScraper):
 
         # Scrape each RB
         for player in players:
-            self.pfr_scraper.ScrapePlayer(player[0], player[1], "RB")
+            self.pfr_scraper.ScrapePlayer(player[0], player[1], "RB", year)
 
         return self.pfr_scraper.GetAndClearRBCache()
 
@@ -49,4 +49,4 @@ if __name__ == '__main__':
     scraper = FFTodayScraper(0.5)
 
     # Test the scrape player function
-    scraper.ScrapeTop25RBFromYears(2005, 2008)
+    data = scraper.ScrapeTop25RBFromYears(2005, 2008)

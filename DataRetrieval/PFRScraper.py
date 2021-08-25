@@ -11,14 +11,14 @@ sys.path.append(os.path.dirname(sys.path[0]))
 
 # Import custom classes
 from DataRetrieval.AbstractScraper import AbstractScraper
-from Data.PlayerDatabase import PlayerDatabase
+from Data.DataCuration import TrimData
 
 
 class PFRScraper(AbstractScraper):
 
     def __init__(self, reqDelay):
         # Threshold to give up when looking for a player
-        self.thresh = 5
+        self.thresh = 10
 
         # What columns do we care about?
         self.rb_filter = ["Year", "Tm", "Rush", "Yds", "TD", "Tgt", "Rec", "AV", "A/G"]
@@ -30,7 +30,7 @@ class PFRScraper(AbstractScraper):
         AbstractScraper.__init__(self, reqDelay)
 
     # This could all use a little bit of cleanup bit it's digestible for now
-    def ScrapePlayer(self, player_first, player_last, position):
+    def ScrapePlayer(self, player_first, player_last, position, year = None, trim = True):
         # Get the last four letters of the last name, if its a short last name, just take the whole thing
         if len(player_last) >= 4:
             player_last_first_four = player_last[0:4]
@@ -68,7 +68,13 @@ class PFRScraper(AbstractScraper):
                     if position == "QB":
                         data = self.ScrapeQB(player_first, player_last, resp.content)
                     if position == "RB":
+                        # Scrape the data
                         data = self.ScrapeRB(player_first, player_last, resp.content)
+
+                        # Check if we want to trim the data to a specific range
+                        if year is not None and trim is True:
+                            data = TrimData(data, year)
+
                         # Put the player in the dictionary
                         self.player_dict_rb[player_first + " " + player_last] = data
                     if position == "WR":

@@ -16,3 +16,7 @@ class PlayerDatabase():
 
     def InsertRB(self, data):
         result=self.db.rb.insert_one(data)
+
+    def ReadAllRBData(self):
+        data = self.db.rb.find({})
+        return data

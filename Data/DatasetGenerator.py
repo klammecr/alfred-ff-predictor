@@ -6,7 +6,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(sys.path[0]))
 
 # Modules
-from PlayerDatabase import PlayerDatabase
+from Data.PlayerDatabase import PlayerDatabase
 from DataRetrieval.FFTodayScraper import FFTodayScraper
 
 class DatasetGenerator:

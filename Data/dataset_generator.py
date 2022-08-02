@@ -1,13 +1,9 @@
-import sys
-import os
+# Third Party
 import numpy as np
-import pandas as pd
 
-sys.path.append(os.path.dirname(sys.path[0]))
-
-# Modules
-from Data.PlayerDatabase import PlayerDatabase
-from DataRetrieval.FFTodayScraper import FFTodayScraper
+# In House
+from data.player_database import PlayerDatabase
+from data_retrieval.fft_today_scraper import FFTodayScraper
 
 class DatasetGenerator:
     def __init__(self, start_year, stop_year, position_group = "RB"):
@@ -19,9 +15,9 @@ class DatasetGenerator:
         # FFToday Scraper
         self.fft_scraper = FFTodayScraper(0.5)
 
-        self.stat_features = {}
-        self.other_features = {}
-        self.stat_features['rb'] = ['rush', 'rush_yds', 'rush_td', 'rec', 'rec_yds', 'rec_td', 'av', 'college_data', 'scrim_yds', 'scrim_tds']
+        self.stat_features        = {}
+        self.other_features       = {}
+        self.stat_features['rb']  = ['rush', 'rush_yds', 'rush_td', 'rec', 'rec_yds', 'rec_td', 'av', 'college_data', 'scrim_yds', 'scrim_tds']
         self.other_features['rb'] = ['age']
     
     def Generate(self):
@@ -38,6 +34,7 @@ class DatasetGenerator:
         return data
 
     def FormatIntoDataset(self, col):
+
         # Features
         X = []
         # Where they finished in RB Rankings
@@ -140,4 +137,3 @@ if __name__ == '__main__':
     # rb_data = generator.Generate()
     data = generator.LoadDataset()
     X, y = generator.FormatIntoDataset(data)
-    pass

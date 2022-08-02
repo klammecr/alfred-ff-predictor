@@ -1,6 +1,6 @@
 # Import custom classes
-from DataRetrieval.AbstractScraper import AbstractScraper
-from DataRetrieval.PFRScraper import PFRScraper
+from data_retrieval.abstract_scraper import AbstractScraper
+from data_retrieval.pfr_scraper import PFRScraper
 from bs4 import BeautifulSoup
 import re
 

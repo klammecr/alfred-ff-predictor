@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(sys.path[0]))
 
 # Import custom classes
-from DataRetrieval.AbstractScraper import AbstractScraper
+from data_retrieval.abstract_scraper import AbstractScraper
 from Data.DataCuration import TrimData
 
 
@@ -35,16 +35,23 @@ class PFRScraper(AbstractScraper):
 
     # This could all use a little bit of cleanup bit it's digestible for now
     def ScrapePlayer(self, player_first, player_last, position, year = None, trim = True):
+        """Scrape a single player from the PFR website
+
+        Args:
+            player_first (string): The first name of the player
+            player_last (string): The last name of the player
+            position (string): The position the player plays
+            year (string, optional): The year to scrape for. Defaults to None.
+            trim (bool, optional): Whether or not to trim the data to a specific year. Defaults to True.
+        """
         # Get the last four letters of the last name, if its a short last name, just take the whole thing
         if len(player_last) >= 4:
             player_last_first_four = player_last[0:4]
         else:
             player_last_first_four = player_last
 
-
         # Get the first two letters of a first name
         player_first_first_two = player_first[0:2]
-
 
         # Iterate until we get the correct player name
         correct_player = False

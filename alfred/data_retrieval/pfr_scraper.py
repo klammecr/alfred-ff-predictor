@@ -1,23 +1,21 @@
-# Import 3rd party
+# 3rd Party
 from bs4 import BeautifulSoup
 from bs4 import Comment
 import re
-import numpy as np
-import json
 import logging
-import sys
-import os
 
-sys.path.append(os.path.dirname(sys.path[0]))
-
-# Import custom classes
-from data_retrieval.abstract_scraper import AbstractScraper
-from Data.DataCuration import TrimData
-
+# In House
+from alfred.data_retrieval.abstract_scraper import AbstractScraper
+from alfred.data.curation import TrimData
 
 class PFRScraper(AbstractScraper):
 
-    def __init__(self, reqDelay):
+    def __init__(self, req_delay):
+        """Initialize the object
+
+        Args:
+            req_delay (int): Time between requests in ms
+        """
         # Threshold to give up when looking for a player
         self.thresh = 10
 
@@ -31,10 +29,10 @@ class PFRScraper(AbstractScraper):
         self.college_stats_link = None
         
         # Initialize the superclass
-        AbstractScraper.__init__(self, reqDelay)
+        AbstractScraper.__init__(self, req_delay)
 
     # This could all use a little bit of cleanup bit it's digestible for now
-    def ScrapePlayer(self, player_first, player_last, position, year = None, trim = True):
+    def scrape_player(self, player_first, player_last, position, year = None, trim = True):
         """Scrape a single player from the PFR website
 
         Args:
@@ -81,35 +79,35 @@ class PFRScraper(AbstractScraper):
 
                 # Scrape differently depending on position
                 if position == "QB":
-                    data = self.ScrapeQB(player_first, player_last, resp.content)
+                    data = self.scrape_qb(player_first, player_last, resp.content)
                 if position == "RB":
                     # Scrape the NFL data
-                    data = self.ScrapeRB(player_first, player_last, resp.content)
+                    data = self.scrape_rb(player_first, player_last, resp.content)
 
                     # Try again if we don't get any data
                     if data is None:
                         url = "https://www.pro-football-reference.com/search/search.fcgi?hint={0}+{1}&search={0}+{1}".format(player_first, player_last)
                         resp = self.m_ssn.get(url, verify = True)
-                        data = self.ScrapeRB(player_first, player_last, resp.content)
+                        data = self.scrape_rb(player_first, player_last, resp.content)
 
                     if data is not None:
                         # Scrape the college stats
-                        college_data = self.ScrapeCollegeData(position)
+                        college_data = self.scrape_college_data(position)
                         data['college_data'] = college_data
 
                         # Check if we want to trim the data to a specific range
                         if year is not None and trim is True:
                             data = TrimData(data, year)
 
-                        correct_player = self.DoesPlayerMatch(player_first, player_last, position, year, resp.content, data)
+                        correct_player = self.does_player_match(player_first, player_last, position, year, resp.content, data)
                         if correct_player:
                             # Put the player in the dictionary
                             self.player_dict_rb[player_first + " " + player_last] = data
 
                     if position == "WR":
-                        data = self.ScrapeWR(player_first, player_last, resp.content)
+                        data = self.scrape_wr(player_first, player_last, resp.content)
                     if position == "TE":
-                        data = self.ScrapeTE(player_first, player_last, resp.content)
+                        data = self.scrape_te(player_first, player_last, resp.content)
 
             else:
                 # Something went wrong with the request
@@ -118,7 +116,20 @@ class PFRScraper(AbstractScraper):
             # Increment the count
             counter += 1
 
-    def DoesPlayerMatch(self, player_first, player_last, position, year, content, data):
+    def does_player_match(self, player_first, player_last, position, year, content, data):
+        """Check if a player matches the time period and the full name
+
+        Args:
+            player_first (string): Player first name
+            player_last (string): Player last name
+            position (string): Player's position
+            year (int): The year that the player has played
+            content (?): The content of the webpage
+            data (dict): The player data from the webpage
+
+        Returns:
+            boolean: If the player matches or not
+        """
         # Return boolean to see if there is a player match
         player_match = False
 
@@ -146,15 +157,29 @@ class PFRScraper(AbstractScraper):
         # See if the years match up and this isn't some bozo from another time period (Adrian Peterson I'm looking at you bro)
         year_keys = [key for key in data.keys() if key.isnumeric()]
         if len(year_keys) == 0 or str(year) not in year_keys:
-            correct_player = False
+            player_match = False
 
         return player_match
 
 
-    def ScrapeQB(self, player_first, player_last, content):
+    def scrape_qb(self, player_first, player_last, content):
+        """Scrape the quarterbacks from the site
+
+        Args:
+            player_first (string): First name
+            player_last (string): Last name
+            content (string): Web page content
+        """
         pass
 
-    def ScrapeRB(self, player_first, player_last, content):
+    def scrape_rb(self, player_first, player_last, content):
+        """Scrape the running backs
+
+        Args:
+            player_first (string): First name
+            player_last (string): Last name
+            content (string): Web page content
+        """
         soup = BeautifulSoup(content, "lxml")
 
         # Find the link to the college stats and cache it if it exists
@@ -176,14 +201,23 @@ class PFRScraper(AbstractScraper):
         stats_table = soup.findAll('table')[0].findAll('tr', attrs={"class":"full_table"})
 
         # Parse the table
-        stat_data = self.ParsePFRTable(stats_table, headers)
+        stat_data = self.parse_pfr_table(stats_table, headers)
 
         # Add draft position
-        stat_data['draft_position'] = self.GetDraftPosition(soup)
+        stat_data['draft_position'] = self.get_draft_position(soup)
         
         return stat_data
 
-    def ParsePFRTable(self, stats_table, headers):
+    def parse_pfr_table(self, stats_table, headers):
+        """Parse the PFR table for all the stats
+
+        Args:
+            stats_table (list): The web content string for the table
+            headers (list): The headers for each table column
+
+        Returns:
+            _dict: The statistics for all the rows and columns in the table
+        """
         # Data for each year
         stat_data = {}
 
@@ -194,11 +228,11 @@ class PFRScraper(AbstractScraper):
             year = re.sub("[^0-9]", "", year)
 
             # Store the data for a given year
-            stat_data[str(year)] = self.ParseTableRow(row, headers)
+            stat_data[str(year)] = self.parse_table_row(row, headers)
 
         return stat_data
 
-    def ParseTableRow(self, row, headers):
+    def parse_table_row(self, row, headers):
         # Get all the data columns
         cols = row.find_all("td")
 
@@ -228,7 +262,7 @@ class PFRScraper(AbstractScraper):
                     out[stat_label.lower()] = col.text
         return out
 
-    def ScrapeCollegeData(self, position):
+    def scrape_college_data(self, position):
         if self.college_stats_link is not None:
             # Create the soup and access the college stats link
             resp = self.m_ssn.get(self.college_stats_link, verify = True)
@@ -255,13 +289,13 @@ class PFRScraper(AbstractScraper):
             headers = [i.text for i in stats_header if i.text != "Year"]
 
             # Parse the row and get the stats from the last college season
-            data = self.ParseTableRow(last_season, headers)
+            data = self.parse_table_row(last_season, headers)
 
             return data
         else:
             return None
 
-    def GetDraftPosition(self, soup):
+    def get_draft_position(self, soup):
         # Get draft position
         draft_position = re.findall("[(][0-9]*.+ overall[)]", soup.find('div', attrs={"id":"info"}).text)
         if len(draft_position) > 0:
@@ -271,21 +305,48 @@ class PFRScraper(AbstractScraper):
 
         return draft_position
 
-    def ScrapeWR(self, player_first, player_last, content):
+    def scrape_wr(self, player_first, player_last, content):
+        """Scrape wide receivers from the site
+
+        Args:
+            player_first (string): First name
+            player_last (string): Last name
+            content (string): Web page content
+        """
         pass
 
-    def ScrapeTE(self, player_first, player_last, content):
+    def scrape_te(self, player_first, player_last, content):
+        """Scrape tight ends from the site
+
+        Args:
+            player_first (string): First name
+            player_last (string): Last name
+            content (string): Web page content
+        """
         pass
 
-    def GetRBCache(self):
+    def get_rbs(self):
+        """Get the running backs
+
+        Returns:
+            _type_: _description_
+        """
         return self.player_dict_rb
 
-    def ClearRBCache(self):
+    def clear_rbs(self):
+        """
+        Clear the running back cache to empty
+        """
         self.player_dict_rb = {}
 
-    def GetAndClearRBCache(self):
-        cache = self.GetRBCache()
-        self.ClearRBCache()
+    def get_and_clear_rbs(self):
+        """Grab the RB cache and clear it afterwards
+
+        Returns:
+            dict: The running backs
+        """
+        cache = self.get_rb_cache()
+        self.clear_rb_cache()
         return cache
 
 # Main script for testing functionality/sandboxing
@@ -294,7 +355,7 @@ if __name__ == '__main__':
     scraper = PFRScraper(0.5)
 
     # Test the scrape player function
-    scraper.ScrapePlayer("Alvin", "Kamara", "RB")
-    scraper.ScrapePlayer("Saquon", "Barkley", "RB")
-    scraper.ScrapePlayer("Aaron", "Jones", "RB")
-    scraper.ScrapePlayer("Tevin", "Coleman", "RB")
+    scraper.scrape_player("Alvin", "Kamara", "RB")
+    scraper.scrape_player("Saquon", "Barkley", "RB")
+    scraper.scrape_player("Aaron", "Jones", "RB")
+    scraper.scrape_player("Tevin", "Coleman", "RB")

@@ -71,6 +71,8 @@ class PFRScraper(AbstractScraper):
         # Store the data in the large data structure
         self.player_dict[position.lower()][player_first + " " + player_last] = data
 
+        return data
+
     
     def search_for_player_match(self, player_first, player_last, position, year):
         # Instaniate variables for finding a match

@@ -12,11 +12,8 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error as mse
 
-# Help us find our modules
-sys.path.append(os.path.dirname(sys.path[0]))
-
 # Our modules
-from Data.DatasetGenerator import DatasetGenerator
+from alfred.data.dataset_generator import DatasetGenerator
 
 class FantasyRF:
 
@@ -26,11 +23,11 @@ class FantasyRF:
         random.seed(seed)
         
     # Wrapper for sklearn RMSE
-    def CalcMSE(self):
+    def calc_mse(self):
         return mse(self.m_y_actual, self.m_y_pred)
 
     # Experimental method
-    def RandomSearchHyperparameters(self, X, y):
+    def random_search_hyperparameters(self, X, y):
         from sklearn.model_selection import RandomizedSearchCV
         param_grid = {
             'bootstrap': [True],
@@ -47,7 +44,7 @@ class FantasyRF:
         print(rf_random.best_params_)
 
     # Experimental method for Cross-Validation Testing
-    def ExperimentForest(self):
+    def experiment_forest(self):
         # Change
         self.m_bScrape = True
         print("Running for User: ", self.m_user)
@@ -74,7 +71,7 @@ class FantasyRF:
         # self.RandomSearchHyperparameters(X, y)
         return cv_mse
 
-    def MakeForest(self, X, y, bSuccess):
+    def make_forest(self, X, y, bSuccess):
         if len(X) != 0 and len(y) != 0 and bSuccess:
             forest = RandomForestRegressor(n_estimators= 200,
                                                     min_samples_split= 8,

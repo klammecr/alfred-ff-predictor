@@ -1,9 +1,11 @@
+-e git+https://github.com/klammecr/alfred-ff-predictor.git@8a684dba8b9761ce246b4dda0607c3b7e16e5d7b#egg=alfred
 beautifulsoup4==4.11.1
 bs4==0.0.1
 certifi==2022.6.15
 charset-normalizer==2.1.0
 idna==3.3
 joblib==1.1.0
+lxml==4.9.1
 numpy==1.23.1
 pandas==1.4.3
 pymongo==4.2.0

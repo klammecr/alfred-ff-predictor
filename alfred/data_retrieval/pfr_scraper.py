@@ -6,7 +6,7 @@ import logging
 
 # In House
 from alfred.data_retrieval.abstract_scraper import AbstractScraper
-from alfred.data.curation import TrimData
+from alfred.data.curation import trim_data
 
 class PFRScraper(AbstractScraper):
 
@@ -22,8 +22,13 @@ class PFRScraper(AbstractScraper):
         # What columns do we care about?
         self.rb_filter = ["Age", "Year", "Tm", "Att", "Rush", "Yds", "TD", "Tgt", "Rec", "AV", "A/G"]
 
-        # RB cache
-        self.player_dict_rb = {}
+        # Dictionary of all player data
+        self.player_dict = {}
+        self.player_dict["qb"] = {}
+        self.player_dict["rb"] = {}
+        self.player_dict["wr"] = {}
+        self.player_dict["te"] = {}
+        
 
         # Variable to store the latest players college stats link, we are not cacheing a list right now, this can be added if we wanted to do something like making this multithreaded
         self.college_stats_link = None
@@ -42,6 +47,37 @@ class PFRScraper(AbstractScraper):
             year (string, optional): The year to scrape for. Defaults to None.
             trim (bool, optional): Whether or not to trim the data to a specific year. Defaults to True.
         """
+        # Try this first, it is the easiest way if there aren't multiple players with this name
+        url  = "https://www.pro-football-reference.com/search/search.fcgi?hint={0}+{1}&search={0}+{1}".format(player_first, player_last)
+        resp = self.m_ssn.get(url, verify = True)
+
+        # If we can just find the player (not multiple names) just scrape them
+        player_match = False
+        if not BeautifulSoup(resp.content, "lxml").find("h1").text == "Search Results":
+            data         = self.scrape_rb(player_first, player_last, resp.content)
+            player_match = self.does_player_match(player_first, player_last, position, year, resp.content, data)
+
+        # If we somehow can't get the correct player yet, do an exhaustive search
+        if not player_match:
+            data = self.search_for_player_match(player_first, player_last, position, year)
+
+        # Scrape the college stats
+        data['college_data'] = self.scrape_college_data(position)
+
+        # Check if we want to trim the data to a specific range
+        if year is not None and trim is True:
+            data = trim_data(data, year)
+
+        # Store the data in the large data structure
+        self.player_dict[position.lower()][player_first + " " + player_last] = data
+
+    
+    def search_for_player_match(self, player_first, player_last, position, year):
+        # Instaniate variables for finding a match
+        correct_player = False
+        counter        = 0
+        data           = None
+
         # Get the last four letters of the last name, if its a short last name, just take the whole thing
         if len(player_last) >= 4:
             player_last_first_four = player_last[0:4]
@@ -51,13 +87,7 @@ class PFRScraper(AbstractScraper):
         # Get the first two letters of a first name
         player_first_first_two = player_first[0:2]
 
-        # Iterate until we get the correct player name
-        correct_player = False
-        counter = 0
-        while correct_player is False and counter < self.thresh + 1:
-            if player_first == "Adrian" and player_last == "Peterson":
-                counter = 1
-            
+        while correct_player is False and counter < self.thresh:
             # There are overlaps with the url convention, we need to just iterate through until we get the right player
             index_str = str(counter)
             if len(index_str) == 1:
@@ -67,47 +97,21 @@ class PFRScraper(AbstractScraper):
             if counter < self.thresh:
                 url = "https://www.pro-football-reference.com/players/{0}/{1}{2}{3}.htm".format(player_last[0], player_last_first_four, player_first_first_two, index_str)
                 resp = self.m_ssn.get(url, verify = True)
-            else:
-                url = "https://www.pro-football-reference.com/search/search.fcgi?hint={0}+{1}&search={0}+{1}".format(player_first, player_last)
-                resp = self.m_ssn.get(url, verify = True)
 
             # Successful request
             if resp.ok:
-                # Assume we got our guy for now
-                correct_player = True
-                data = {}
-
                 # Scrape differently depending on position
                 if position == "QB":
                     data = self.scrape_qb(player_first, player_last, resp.content)
-                if position == "RB":
-                    # Scrape the NFL data
+                elif position == "RB":
                     data = self.scrape_rb(player_first, player_last, resp.content)
+                elif position == "WR":
+                    data = self.scrape_wr(player_first, player_last, resp.content)
+                elif position == "TE":
+                    data = self.scrape_te(player_first, player_last, resp.content)
 
-                    # Try again if we don't get any data
-                    if data is None:
-                        url = "https://www.pro-football-reference.com/search/search.fcgi?hint={0}+{1}&search={0}+{1}".format(player_first, player_last)
-                        resp = self.m_ssn.get(url, verify = True)
-                        data = self.scrape_rb(player_first, player_last, resp.content)
-
-                    if data is not None:
-                        # Scrape the college stats
-                        college_data = self.scrape_college_data(position)
-                        data['college_data'] = college_data
-
-                        # Check if we want to trim the data to a specific range
-                        if year is not None and trim is True:
-                            data = TrimData(data, year)
-
-                        correct_player = self.does_player_match(player_first, player_last, position, year, resp.content, data)
-                        if correct_player:
-                            # Put the player in the dictionary
-                            self.player_dict_rb[player_first + " " + player_last] = data
-
-                    if position == "WR":
-                        data = self.scrape_wr(player_first, player_last, resp.content)
-                    if position == "TE":
-                        data = self.scrape_te(player_first, player_last, resp.content)
+                # See if the player matches and will let us exit the while loop
+                correct_player = self.does_player_match(player_first, player_last, position, year, resp.content, data)
 
             else:
                 # Something went wrong with the request
@@ -115,6 +119,8 @@ class PFRScraper(AbstractScraper):
 
             # Increment the count
             counter += 1
+        
+        return data
 
     def does_player_match(self, player_first, player_last, position, year, content, data):
         """Check if a player matches the time period and the full name
@@ -155,9 +161,10 @@ class PFRScraper(AbstractScraper):
             player_match = True
 
         # See if the years match up and this isn't some bozo from another time period (Adrian Peterson I'm looking at you bro)
-        year_keys = [key for key in data.keys() if key.isnumeric()]
-        if len(year_keys) == 0 or str(year) not in year_keys:
-            player_match = False
+        if year is not None:
+            year_keys = [key for key in data.keys() if key.isnumeric()]
+            if len(year_keys) == 0 or str(year) not in year_keys:
+                player_match = False
 
         return player_match
 
@@ -331,13 +338,13 @@ class PFRScraper(AbstractScraper):
         Returns:
             _type_: _description_
         """
-        return self.player_dict_rb
+        return self.player_dict.get("rb")
 
     def clear_rbs(self):
         """
         Clear the running back cache to empty
         """
-        self.player_dict_rb = {}
+        self.player_dict["rb"] = {}
 
     def get_and_clear_rbs(self):
         """Grab the RB cache and clear it afterwards
@@ -355,6 +362,7 @@ if __name__ == '__main__':
     scraper = PFRScraper(0.5)
 
     # Test the scrape player function
+    scraper.scrape_player("Adrian", "Peterson", "RB")
     scraper.scrape_player("Alvin", "Kamara", "RB")
     scraper.scrape_player("Saquon", "Barkley", "RB")
     scraper.scrape_player("Aaron", "Jones", "RB")

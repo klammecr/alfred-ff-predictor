@@ -2,11 +2,18 @@
 import numpy as np
 
 # In House
-from data.player_database import PlayerDatabase
-from data_retrieval.fft_today_scraper import FFTodayScraper
+from alfred.data.player_database import PlayerDatabase
+from alfred.data_retrieval.fft_today_scraper import FFTodayScraper
 
 class DatasetGenerator:
     def __init__(self, start_year, stop_year, position_group = "RB"):
+        """Instaniate the object for dataset generation
+
+        Args:
+            start_year (int): Year to start the dataset
+            stop_year (int): Year to end the dataset
+            position_group (str, optional): Position group to target. Defaults to "RB".
+        """
         self.start_year = start_year
         self.stop_year = stop_year
         self.position_group = position_group     
@@ -20,20 +27,31 @@ class DatasetGenerator:
         self.stat_features['rb']  = ['rush', 'rush_yds', 'rush_td', 'rec', 'rec_yds', 'rec_td', 'av', 'college_data', 'scrim_yds', 'scrim_tds']
         self.other_features['rb'] = ['age']
     
-    def Generate(self):
+    def generate(self):
+        """Genereate the dataset
+
+        Returns:
+            dict: The players of interest
+        """
         if self.position_group == "RB":
-            data = self.fft_scraper.ScrapeTop25RBFromYears(self.start_year, self.stop_year)
+            data = self.fft_scraper.scrape_rb_from_years(self.start_year, self.stop_year)
         return data
 
-    def Save(self, data, position_group):
+    def save(self, data, position_group):
+        """Interface into the databse to save a RB
+
+        Args:
+            data (dict): The data to save
+            position_group (string): The position group
+        """
         if position_group == "RB":
             self.db.InsertRB(data)
 
-    def LoadDataset(self):
+    def load_dataset(self):
         data = self.db.ReadAllRBData()
         return data
 
-    def FormatIntoDataset(self, col):
+    def format_into_dataset(self, col):
 
         # Features
         X = []
@@ -135,5 +153,5 @@ if __name__ == '__main__':
     # See if the inheiritance/init is working
     generator = DatasetGenerator(2005, 2020)
     # rb_data = generator.Generate()
-    data = generator.LoadDataset()
-    X, y = generator.FormatIntoDataset(data)
+    data = generator.load_dataset
+    X, y = generator.format_into_dataset(data)
